@@ -1,0 +1,26 @@
+# Railway service: code-ingest-mcp
+# Built from Dockerfile.mcp (existing in repo root).
+# No volume needed — MCP is stateless query service.
+# Network: private only (port 8001), no public domain.
+#
+# Required service env vars (set in Railway dashboard or via project shared variables):
+#   DEEPINFRA_API_KEY
+#   QDRANT_URL=http://qdrant-code-ingest.railway.internal:6333
+#   MCP_HTTP_TRANSPORT=true
+#   ENABLE_HEALTH_ENDPOINT=true
+#   HEALTH_PORT=8001
+#   DOCKER_ENV=true
+#
+# Optional env vars:
+#   EMBEDDING_MODEL=Qwen/Qwen3-Embedding-8B  (must match the ingest service)
+#   LOG_LEVEL=INFO
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile.mcp"
+
+[deploy]
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
+healthcheckPath = "/health"
+healthcheckTimeout = 100

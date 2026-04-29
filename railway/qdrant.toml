@@ -1,0 +1,8 @@
+# Railway service: qdrant-code-ingest
+# Source image is set in the Railway dashboard: qdrant/qdrant:latest
+# Volume: 50 GB attached at /qdrant/storage
+# Network: private only (port 6333), no public domain.
+
+[deploy]
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10

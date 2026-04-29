@@ -5,6 +5,20 @@ echo "=================================================="
 echo "Code Ingestion Service"
 echo "=================================================="
 
+# Required env vars — fail fast with a clear message.
+missing=()
+if [ -z "${DEEPINFRA_API_KEY:-}" ]; then
+    missing+=("DEEPINFRA_API_KEY")
+fi
+if [ -z "${GITHUB_TOKEN:-}" ]; then
+    missing+=("GITHUB_TOKEN")
+fi
+if [ "${#missing[@]}" -gt 0 ]; then
+    echo "❌ Missing required environment variable(s): ${missing[*]}" >&2
+    echo "   Set them in your .env file (docker compose) or in the Railway service variables, then redeploy." >&2
+    exit 1
+fi
+
 # Wait for Qdrant to be ready
 echo "⏳ Waiting for Qdrant..."
 max_attempts=30

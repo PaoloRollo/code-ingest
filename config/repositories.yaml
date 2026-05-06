@@ -28,8 +28,6 @@ repos_base_dir: ./repos
 
 # Repository definitions
 repositories:
-# Repository definitions
-repositories:
   - github_url: https://github.com/eco/eco-routes
   - github_url: https://github.com/eco/eco-routes-svm
   - github_url: https://github.com/eco/eco-chains

@@ -28,10 +28,70 @@ repos_base_dir: ./repos
 
 # Repository definitions
 repositories:
+# Repository definitions
+repositories:
   - github_url: https://github.com/eco/eco-routes
   - github_url: https://github.com/eco/eco-routes-svm
   - github_url: https://github.com/eco/eco-chains
   - github_url: https://github.com/eco/permit3
+
+  # === ECO ORG — NEW SERVICES ===
+  - github_url: https://github.com/eco/balances-service
+  - github_url: https://github.com/eco/deposit-addresses
+  - github_url: https://github.com/eco/routes-deployer-cli
+  - github_url: https://github.com/eco/solver-guardian
+  - github_url: https://github.com/eco/eco-solver
+  - github_url: https://github.com/eco/eco-refunds
+  - github_url: https://github.com/eco/eco-quotes
+  - github_url: https://github.com/eco/liquidity-manager
+  - github_url: https://github.com/eco/netting-prover
+  - github_url: https://github.com/eco/routes-cli
+  - github_url: https://github.com/eco/toolkit
+  - github_url: https://github.com/eco/routes
+  - github_url: https://github.com/eco/root-app
+  - github_url: https://github.com/eco/eco-general-scripts
+  - github_url: https://github.com/eco/veda
+  - github_url: https://github.com/eco/erpc
+  - github_url: https://github.com/eco/substreams-sink-mongodb
+  - github_url: https://github.com/eco/routes-rindexer
+  - github_url: https://github.com/eco/eco_governance
+  - github_url: https://github.com/eco/rhine_constants
+
+  # === ECO-INCORP ORG ===
+  - github_url: https://github.com/eco-incorp/qa-command-center
+  - github_url: https://github.com/eco-incorp/chain-test
+  - github_url: https://github.com/eco-incorp/ingestion-data-layer
+  - github_url: https://github.com/eco-incorp/protocol-balance-monitor
+  - github_url: https://github.com/eco-incorp/protocol-indexer
+  - github_url: https://github.com/eco-incorp/portal
+  - github_url: https://github.com/eco-incorp/mvp_pricing_engine
+  - github_url: https://github.com/eco-incorp/smart-sauce-api
+  - github_url: https://github.com/eco-incorp/sauce-compiler-api
+  - github_url: https://github.com/eco-incorp/eco-solver-deploy
+  - github_url: https://github.com/eco-incorp/solver-admin-dashboard
+  - github_url: https://github.com/eco-incorp/cash-balance-monitor
+  - github_url: https://github.com/eco-incorp/finance-dashboard
+  - github_url: https://github.com/eco-incorp/manual-rebalancing-bot
+  - github_url: https://github.com/eco-incorp/gas-refill-service
+  - github_url: https://github.com/eco-incorp/solver-historical-balances
+  - github_url: https://github.com/eco-incorp/nettingproverservice
+  - github_url: https://github.com/eco-incorp/eco-refunds-alert
+  - github_url: https://github.com/eco-incorp/Eco-refund
+  - github_url: https://github.com/eco-incorp/eco-event-listener
+  - github_url: https://github.com/eco-incorp/eco-substreams
+  - github_url: https://github.com/eco-incorp/porto-relay
+  - github_url: https://github.com/eco-incorp/crowd-liquidity-pool
+  - github_url: https://github.com/eco-incorp/relayoor
+  - github_url: https://github.com/eco-incorp/crowd-liquidity
+  - github_url: https://github.com/eco-incorp/rebalance-me
+  - github_url: https://github.com/eco-incorp/eco-event-query-node
+  - github_url: https://github.com/eco-incorp/eco-event-dashboard
+  - github_url: https://github.com/eco-incorp/hats-dashboard
+  - github_url: https://github.com/eco-incorp/rebalance-modeler
+  - github_url: https://github.com/eco-incorp/linkedup-app
+  - github_url: https://github.com/eco-incorp/linkedup
+  - github_url: https://github.com/eco-incorp/doa-tap-page
+  - github_url: https://github.com/eco-incorp/sauce
   # === FRONTEND ===
   # - id: arda-platform
   #   github_url: https://github.com/ardaglobal/arda-platform

@@ -79,7 +79,7 @@ The default cron schedule is `0 4 * * *` (04:00 UTC nightly). To populate Qdrant
 1. In the Railway dashboard, open `code-ingest-ingest` and click **Deploy** (or run **Redeploy**). Railway runs the entrypoint once.
 2. Watch logs (**Deployments → latest → Logs**). Expected sequence:
    - "⏳ Waiting for Qdrant..." → "✅ Qdrant is ready"
-   - "📥 Cloning repositories..." (first run; subsequent runs say "🔄 Refreshing existing repositories")
+   - "🔄 Refreshing N existing repositories" (skipped on the first run), then "📥 Cloning missing repositories..." (clones only repos not yet on the volume)
    - "🔍 Running repository discovery..."
    - "🚀 Starting ingestion pipeline..."
    - per-repo / per-batch progress

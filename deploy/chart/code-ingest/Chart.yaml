@@ -1,0 +1,6 @@
+apiVersion: v2
+name: code-ingest
+description: Code ingestion CronJob and MCP search server over a Qdrant vector store
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

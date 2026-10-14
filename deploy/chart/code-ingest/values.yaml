@@ -1,0 +1,118 @@
+# Defaults for the code-ingest chart. Environment overrides live in app-deploy
+# (envs/ss-ai-513051133833/ai/code-ingest/values.yaml).
+
+nameOverride: ""
+fullnameOverride: ""
+
+# Both images are built by .github/workflows/images.yml. `tag` accepts the
+# digest-pinned form CI reports: `sha-<short>@sha256:<digest>`.
+images:
+  pullPolicy: IfNotPresent
+  mcp:
+    repository: code-ingest/mcp
+    tag: ""
+  ingest:
+    repository: code-ingest/ingest
+    tag: ""
+
+serviceAccount:
+  create: true
+  # Defaults to the release fullname. Pod Identity associations bind to this name.
+  name: ""
+  annotations: {}
+  automountServiceAccountToken: false
+
+# Shared runtime configuration for both workloads.
+qdrant:
+  url: http://qdrant:6333
+  # Optional API key Secret (Qdrant Cloud). Leave name empty for an in-cluster Qdrant.
+  apiKeySecret:
+    name: ""
+    key: QDRANT_API_KEY
+
+# Must be identical for ingest and MCP: query vectors have to come from the
+# same model that produced the stored vectors.
+embeddingModel: Qwen/Qwen3-Embedding-8B
+logLevel: INFO
+
+# Secret consumed via envFrom by both workloads. Must provide DEEPINFRA_API_KEY;
+# the ingest job also needs GITHUB_TOKEN (read access to every configured repo).
+envSecretName: ""
+
+# Secrets Store CSI: the driver only materialises synced Secrets while a pod
+# mounts the volume, so both workloads mount it when a name is set.
+secretProviderClass:
+  name: ""
+  mountPath: /mnt/secrets-store
+
+podSecurityContext: {}
+securityContext: {}
+
+mcp:
+  enabled: true
+  replicaCount: 1
+  port: 8001
+  service:
+    type: ClusterIP
+    port: 8001
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+    limits:
+      memory: 1Gi
+  # /health returns 503 until Qdrant holds ingested points (and whenever Qdrant
+  # is unreachable), so it gates readiness only. Startup/liveness check the
+  # listener: an empty store or a Qdrant blip must not restart the server.
+  probes:
+    startup:
+      tcpSocket: {port: http}
+      periodSeconds: 5
+      failureThreshold: 60
+    readiness:
+      httpGet: {path: /health, port: http}
+      periodSeconds: 10
+      timeoutSeconds: 5
+    liveness:
+      tcpSocket: {port: http}
+      periodSeconds: 30
+      failureThreshold: 3
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  podAnnotations: {}
+  extraEnv: []
+
+ingest:
+  enabled: true
+  schedule: "0 4 * * *"
+  timeZone: Etc/UTC
+  suspend: false
+  # A run that overlaps the next schedule would race on the repo cache volume.
+  concurrencyPolicy: Forbid
+  # Full re-ingestion of ~120 repos; fail the Job rather than let it hang forever.
+  activeDeadlineSeconds: 21600
+  backoffLimit: 0
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  # Minimum repo priority to clone and ingest (high | medium | low | ALL).
+  priority: low
+  batchSize: 15
+  embeddingTimeout: 120
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1536Mi
+    limits:
+      memory: 4Gi
+  # Persistent clone cache so scheduled runs `git pull` instead of re-cloning.
+  reposCache:
+    enabled: true
+    existingClaim: ""
+    storageClassName: ""
+    size: 50Gi
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  podAnnotations: {}
+  extraEnv: []

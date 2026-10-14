@@ -1,0 +1,22 @@
+{{- if and .Values.ingest.enabled .Values.ingest.reposCache.enabled (not .Values.ingest.reposCache.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "code-ingest.reposCacheClaim" . }}
+  labels:
+    {{- include "code-ingest.labels" . | nindent 4 }}
+    app.kubernetes.io/component: ingest
+  annotations:
+    # A cache, but a ~10 GB one that takes hours to re-clone: survive uninstall
+    # (Helm) and prune (Argo CD, which ignores Helm's resource-policy).
+    helm.sh/resource-policy: keep
+    argocd.argoproj.io/sync-options: Prune=false
+spec:
+  accessModes: [ReadWriteOnce]
+  {{- with .Values.ingest.reposCache.storageClassName }}
+  storageClassName: {{ . }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.ingest.reposCache.size }}
+{{- end }}

@@ -1,7 +1,7 @@
 # Module Dependency Graph - Code Ingestion System
 
 > **Auto-synced with codebase**
-> **Last Updated:** 2026-02-04
+> **Last Updated:** 2026-10-14
 > **Version:** 3.0.0-ingestion-only
 
 ## Complete Dependency Map
@@ -21,6 +21,13 @@ Makefile (make ingest, make ingest-search, etc.)
 ├── modules/ingest/scripts/collection_manager.py
 ├── modules/ingest/scripts/repo_metadata.py
 └── modules.ingest.IngestionPipeline
+```
+
+```
+.github/workflows/images.yml (image CI → ss-ai ECR, see docs/deployment/SS_AI.md)
+├── Dockerfile.ingest → docker/entrypoint-ingest.sh → repo_cloner, repo_discovery, IngestionPipeline
+├── Dockerfile.mcp → docker/entrypoint-mcp.sh → mcp/server.py
+└── deploy/chart/code-ingest (helm lint + render checks)
 ```
 
 ### Layer 2: Public API

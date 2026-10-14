@@ -1,0 +1,331 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "title": "code-ingest values",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "images",
+    "qdrant",
+    "mcp",
+    "ingest"
+  ],
+  "properties": {
+    "nameOverride": {
+      "type": "string"
+    },
+    "fullnameOverride": {
+      "type": "string"
+    },
+    "images": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mcp",
+        "ingest"
+      ],
+      "properties": {
+        "pullPolicy": {
+          "type": "string",
+          "enum": [
+            "Always",
+            "IfNotPresent",
+            "Never"
+          ]
+        },
+        "mcp": {
+          "$ref": "#/definitions/image"
+        },
+        "ingest": {
+          "$ref": "#/definitions/image"
+        }
+      }
+    },
+    "serviceAccount": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "create": {
+          "type": "boolean"
+        },
+        "annotations": {
+          "$ref": "#/definitions/stringMap"
+        }
+      }
+    },
+    "qdrant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "url"
+      ],
+      "properties": {
+        "url": {
+          "type": "string",
+          "pattern": "^https?://"
+        }
+      }
+    },
+    "embeddingModel": {
+      "type": "string",
+      "minLength": 1
+    },
+    "logLevel": {
+      "type": "string",
+      "enum": [
+        "DEBUG",
+        "INFO",
+        "WARNING",
+        "ERROR"
+      ]
+    },
+    "podSecurityContext": {
+      "type": "object"
+    },
+    "securityContext": {
+      "type": "object"
+    },
+    "mcp": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "replicaCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "port": {
+          "$ref": "#/definitions/port"
+        },
+        "secretProviderClass": {
+          "type": "string"
+        },
+        "secretFiles": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/secretFiles"
+            }
+          ],
+          "propertyNames": {
+            "enum": [
+              "DEEPINFRA_API_KEY",
+              "QDRANT_API_KEY"
+            ]
+          },
+          "description": "Only variables docker/entrypoint-mcp.sh loads from <VAR>_FILE."
+        },
+        "service": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": [
+                "ClusterIP",
+                "NodePort",
+                "LoadBalancer"
+              ]
+            },
+            "port": {
+              "$ref": "#/definitions/port"
+            }
+          }
+        },
+        "resources": {
+          "type": "object"
+        },
+        "probes": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "startup",
+            "readiness",
+            "liveness"
+          ],
+          "properties": {
+            "startup": {
+              "type": "object"
+            },
+            "readiness": {
+              "type": "object"
+            },
+            "liveness": {
+              "type": "object"
+            }
+          }
+        },
+        "nodeSelector": {
+          "$ref": "#/definitions/stringMap"
+        },
+        "tolerations": {
+          "type": "array"
+        },
+        "affinity": {
+          "type": "object"
+        },
+        "podAnnotations": {
+          "$ref": "#/definitions/stringMap"
+        },
+        "extraEnv": {
+          "type": "array"
+        }
+      }
+    },
+    "ingest": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "schedule": {
+          "type": "string",
+          "minLength": 1
+        },
+        "timeZone": {
+          "type": "string"
+        },
+        "suspend": {
+          "type": "boolean"
+        },
+        "concurrencyPolicy": {
+          "type": "string",
+          "enum": [
+            "Forbid",
+            "Replace",
+            "Allow"
+          ]
+        },
+        "activeDeadlineSeconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "backoffLimit": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "successfulJobsHistoryLimit": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failedJobsHistoryLimit": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "priority": {
+          "type": "string",
+          "enum": [
+            "high",
+            "medium",
+            "low",
+            "ALL"
+          ]
+        },
+        "batchSize": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "embeddingTimeout": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "secretProviderClass": {
+          "type": "string"
+        },
+        "secretFiles": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/secretFiles"
+            }
+          ],
+          "propertyNames": {
+            "enum": [
+              "DEEPINFRA_API_KEY",
+              "GITHUB_TOKEN",
+              "QDRANT_API_KEY"
+            ]
+          },
+          "description": "Only variables docker/entrypoint-ingest.sh loads from <VAR>_FILE."
+        },
+        "resources": {
+          "type": "object"
+        },
+        "reposCache": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "existingClaim": {
+              "type": "string"
+            },
+            "storageClassName": {
+              "type": "string"
+            },
+            "size": {
+              "type": "string",
+              "pattern": "^[0-9]+(Mi|Gi|Ti)$"
+            }
+          }
+        },
+        "nodeSelector": {
+          "$ref": "#/definitions/stringMap"
+        },
+        "tolerations": {
+          "type": "array"
+        },
+        "affinity": {
+          "type": "object"
+        },
+        "podAnnotations": {
+          "$ref": "#/definitions/stringMap"
+        },
+        "extraEnv": {
+          "type": "array"
+        }
+      }
+    }
+  },
+  "definitions": {
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "tag"
+      ],
+      "properties": {
+        "repository": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tag": {
+          "type": "string",
+          "pattern": "^$|^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}@sha256:[a-f0-9]{64}$",
+          "description": "Empty (component disabled) or digest-pinned <tag>@sha256:<digest>, as reported by the images workflow. A bare tag is rejected."
+        }
+      }
+    },
+    "secretFiles": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+      },
+      "description": "ENV_VAR \u2192 object alias in the SecretProviderClass mount (/mnt/secrets-store/<alias>)."
+    },
+    "stringMap": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "port": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 65535
+    }
+  }
+}

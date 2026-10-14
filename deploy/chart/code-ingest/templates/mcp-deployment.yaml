@@ -1,5 +1,5 @@
 {{- if .Values.mcp.enabled }}
-{{- $selector := dict "root" . "component" "mcp" }}
+{{- $component := dict "root" . "component" "mcp" }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -11,23 +11,23 @@ spec:
   replicas: {{ .Values.mcp.replicaCount }}
   selector:
     matchLabels:
-      {{- include "code-ingest.selectorLabels" $selector | nindent 6 }}
+      {{- include "code-ingest.selectorLabels" $component | nindent 6 }}
   template:
     metadata:
       labels:
-        {{- include "code-ingest.selectorLabels" $selector | nindent 8 }}
+        {{- include "code-ingest.selectorLabels" $component | nindent 8 }}
       {{- with .Values.mcp.podAnnotations }}
       annotations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
     spec:
-      serviceAccountName: {{ include "code-ingest.serviceAccountName" . }}
-      automountServiceAccountToken: {{ .Values.serviceAccount.automountServiceAccountToken }}
+      serviceAccountName: {{ include "code-ingest.serviceAccountName" $component }}
+      automountServiceAccountToken: false
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
         - name: mcp
-          image: {{ include "code-ingest.image" $selector | quote }}
+          image: {{ include "code-ingest.image" $component | quote }}
           imagePullPolicy: {{ .Values.images.pullPolicy }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
@@ -42,10 +42,10 @@ spec:
               value: "true"
             - name: HEALTH_PORT
               value: {{ .Values.mcp.port | quote }}
+            {{- include "code-ingest.secretFileEnv" $component | nindent 12 }}
             {{- with .Values.mcp.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
-          {{- include "code-ingest.envFrom" . | nindent 10 }}
           startupProbe:
             {{- toYaml .Values.mcp.probes.startup | nindent 12 }}
           readinessProbe:
@@ -54,14 +54,15 @@ spec:
             {{- toYaml .Values.mcp.probes.liveness | nindent 12 }}
           resources:
             {{- toYaml .Values.mcp.resources | nindent 12 }}
-          {{- if .Values.secretProviderClass.name }}
           volumeMounts:
-            {{- include "code-ingest.spcVolumeMount" . | nindent 12 }}
-          {{- end }}
-      {{- if .Values.secretProviderClass.name }}
+            - name: tmp
+              mountPath: /tmp
+            {{- include "code-ingest.spcVolumeMount" $component | nindent 12 }}
       volumes:
-        {{- include "code-ingest.spcVolume" . | nindent 8 }}
-      {{- end }}
+        - name: tmp
+          emptyDir:
+            sizeLimit: 256Mi
+        {{- include "code-ingest.spcVolume" $component | nindent 8 }}
       {{- with .Values.mcp.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

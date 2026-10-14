@@ -40,13 +40,16 @@ env:
   AWS_REGION: us-east-2
   ECR: 513051133833.dkr.ecr.us-east-2.amazonaws.com
   # Created by app-deploy envs/ss-ai-513051133833/ai/code-ingest/extras/ci-iam.yaml;
-  # trust is pinned to this repo's immutable OIDC subject.
+  # trust accepts only this repo's main ref (immutable OIDC subject).
   ECR_ROLE: arn:aws:iam::513051133833:role/github-actions-code-ingest-image-publisher
 
 jobs:
   chart:
     name: helm lint + render
     runs-on: ubuntu-latest
+    env:
+      # Any syntactically valid digest-pinned tag; the schema rejects bare tags.
+      PINNED: sha-0000000@sha256:0000000000000000000000000000000000000000000000000000000000000000
     steps:
       - uses: actions/checkout@v4
 
@@ -55,27 +58,49 @@ jobs:
           version: "v3.16.3"
 
       - name: helm lint
-        run: |
-          helm lint deploy/chart/code-ingest \
-            --set images.mcp.tag=sha-0000000 --set images.ingest.tag=sha-0000000
+        run: helm lint deploy/chart/code-ingest --set images.mcp.tag="$PINNED" --set images.ingest.tag="$PINNED"
 
-      # A missing image tag must fail the render, not ship a pod that pulls
-      # `repo:` and sits in InvalidImageName.
-      - name: missing image tag fails to render
+      # Each case must FAIL to render. A guard that silently stopped firing
+      # would otherwise reach the cluster as a broken or over-privileged pod.
+      - name: guards fail to render
         run: |
-          if helm template t deploy/chart/code-ingest >/dev/null 2>&1; then
-            echo "::error::expected render to FAIL without image tags"; exit 1
-          fi
+          fails() {
+            if helm template t deploy/chart/code-ingest "$@" >/dev/null 2>&1; then
+              echo "::error::expected render to FAIL for: $*"; exit 1
+            fi
+          }
+          ingest=(--set images.ingest.tag="$PINNED")
+          # No tag at all → InvalidImageName instead of a render error.
+          fails "${ingest[@]}"
+          # Bare tag: what runs must be the exact digest CI built.
+          fails --set images.mcp.tag=sha-0000000 "${ingest[@]}"
+          # The MCP pod must never be handed the GitHub token.
+          fails --set images.mcp.tag="$PINNED" "${ingest[@]}" \
+            --set mcp.secretProviderClass=spc --set mcp.secretFiles.GITHUB_TOKEN=github-token
+          # A secret file with no CSI mount points at nothing.
+          fails --set images.mcp.tag="$PINNED" "${ingest[@]}" \
+            --set ingest.secretFiles.GITHUB_TOKEN=github-token
+          # Unknown keys are typos, not features.
+          fails --set images.mcp.tag="$PINNED" "${ingest[@]}" --set envSecretName=x
 
-      # The CSI driver only syncs Secrets while a pod mounts the volume. Both
-      # workloads must mount it, or the CronJob starts with no credentials
-      # whenever the MCP pod is down.
-      - name: both workloads mount the secret provider class
+      # Credentials arrive as CSI-mounted files, never as Kubernetes Secrets
+      # or env values, and both pods run non-root on a read-only root fs.
+      - name: hardened render
         run: |
           helm template t deploy/chart/code-ingest \
-            --set images.mcp.tag=sha-0000000 --set images.ingest.tag=sha-0000000 \
-            --set secretProviderClass.name=spc > /tmp/csi.yaml
-          test "$(grep -c 'secretProviderClass: "spc"' /tmp/csi.yaml)" = 2
+            --set images.mcp.tag="$PINNED" --set images.ingest.tag="$PINNED" \
+            --set mcp.secretProviderClass=mcp-spc --set mcp.secretFiles.DEEPINFRA_API_KEY=deepinfra-api-key \
+            --set ingest.secretProviderClass=ingest-spc \
+            --set ingest.secretFiles.DEEPINFRA_API_KEY=deepinfra-api-key \
+            --set ingest.secretFiles.GITHUB_TOKEN=github-token > /tmp/r.yaml
+          if grep -qE 'envFrom:|secretKeyRef:|^kind: Secret' /tmp/r.yaml; then
+            echo "::error::credentials leaked into env/Secret wiring"; exit 1
+          fi
+          test "$(grep -c 'readOnlyRootFilesystem: true' /tmp/r.yaml)" = 2
+          test "$(grep -c 'runAsNonRoot: true' /tmp/r.yaml)" = 4
+          test "$(grep -c 'name: GITHUB_TOKEN_FILE' /tmp/r.yaml)" = 1
+          test "$(grep -c 'secretProviderClass: "mcp-spc"' /tmp/r.yaml)" = 1
+          test "$(grep -c 'secretProviderClass: "ingest-spc"' /tmp/r.yaml)" = 1
 
   image:
     name: ${{ matrix.component }} image
@@ -108,8 +133,20 @@ jobs:
           platforms: linux/amd64
           load: true
           tags: ${{ env.ECR }}/${{ env.REPOSITORY }}:${{ env.TAG }}
+          # Provenance: the commit and run that built these bytes travel with
+          # the image, so a pinned digest can be traced back without CI logs.
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.url=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           cache-from: type=gha,scope=${{ matrix.component }}
           cache-to: type=gha,mode=max,scope=${{ matrix.component }}
+
+      # Same runtime constraints as the chart: arbitrary non-root UID, read-only
+      # root filesystem, no capabilities. Writes outside /tmp fail here first.
+      - name: Hardened runtime flags
+        run: |
+          echo "HARDENED=--user 65532:65532 --read-only --tmpfs /tmp:uid=65532,gid=65532 --cap-drop ALL --security-opt no-new-privileges -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1" >> "$GITHUB_ENV"
 
       - name: Unit tests in the image
         run: |
@@ -117,8 +154,33 @@ jobs:
             ingest) suites=(tests.unit.test_batch_processor tests.unit.test_surrealdb_get_collections) ;;
             mcp)    suites=(tests.unit.test_health_server) ;;
           esac
-          docker run --rm -v "$PWD/tests:/app/tests:ro" --entrypoint python \
+          # shellcheck disable=SC2086 # HARDENED is a deliberate flag list
+          docker run --rm $HARDENED -v "$PWD/tests:/app/tests:ro" --entrypoint python \
             "$ECR/$REPOSITORY:$TAG" -m unittest "${suites[@]}" -v
+
+      # The real entrypoint, hardened, with its credential read from a mounted
+      # file the way the CSI driver delivers it. Must come up and answer
+      # /health (503 waiting_for_ingestion against an empty Qdrant).
+      - name: MCP entrypoint smoke
+        if: matrix.component == 'mcp'
+        run: |
+          docker network create smoke
+          docker run -d --rm --name qdrant --network smoke qdrant/qdrant:latest
+          mkdir -p /tmp/secrets && echo dummy > /tmp/secrets/deepinfra-api-key
+          chmod -R a+rX /tmp/secrets
+          # shellcheck disable=SC2086
+          docker run -d --rm --name mcp --network smoke -p 8001:8001 $HARDENED \
+            -v /tmp/secrets:/mnt/secrets-store:ro \
+            -e DEEPINFRA_API_KEY_FILE=/mnt/secrets-store/deepinfra-api-key \
+            -e QDRANT_URL=http://qdrant:6333 -e MCP_HTTP_TRANSPORT=true -e HEALTH_PORT=8001 \
+            "$ECR/$REPOSITORY:$TAG"
+          for _ in $(seq 1 60); do
+            body=$(curl -s localhost:8001/health) && [ -n "$body" ] && break
+            sleep 2
+          done
+          echo "$body"
+          docker logs mcp
+          grep -q '"qdrant":"ok"' <<<"$body"
 
       - name: Configure AWS credentials
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'

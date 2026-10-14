@@ -5,6 +5,9 @@ echo "=================================================="
 echo "MCP Server"
 echo "=================================================="
 
+. /usr/local/lib/code-ingest/load-secret-files.sh
+load_secret_files DEEPINFRA_API_KEY QDRANT_API_KEY
+
 # Wait for Qdrant to be ready
 echo "⏳ Waiting for Qdrant..."
 max_attempts=30

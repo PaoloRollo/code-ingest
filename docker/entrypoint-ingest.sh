@@ -5,6 +5,9 @@ echo "=================================================="
 echo "Code Ingestion Service"
 echo "=================================================="
 
+. /usr/local/lib/code-ingest/load-secret-files.sh
+load_secret_files DEEPINFRA_API_KEY GITHUB_TOKEN QDRANT_API_KEY
+
 # Required env vars — fail fast with a clear message.
 missing=()
 if [ -z "${DEEPINFRA_API_KEY:-}" ]; then

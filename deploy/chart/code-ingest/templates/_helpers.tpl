@@ -23,7 +23,10 @@ app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 
-{{/* Selector labels for one component: pass (dict "root" $ "component" "mcp"). */}}
+{{/*
+Component-scoped helpers take (dict "root" $ "component" "mcp"|"ingest").
+*/}}
+
 {{- define "code-ingest.selectorLabels" -}}
 app.kubernetes.io/name: {{ include "code-ingest.name" .root }}
 app.kubernetes.io/instance: {{ .root.Release.Name }}
@@ -31,14 +34,13 @@ app.kubernetes.io/component: {{ .component }}
 {{- end }}
 
 {{- define "code-ingest.serviceAccountName" -}}
-{{- if .Values.serviceAccount.create }}
-{{- default (include "code-ingest.fullname" .) .Values.serviceAccount.name }}
+{{- if .root.Values.serviceAccount.create }}
+{{- printf "%s-%s" (include "code-ingest.fullname" .root) .component }}
 {{- else }}
-{{- default "default" .Values.serviceAccount.name }}
+{{- "default" }}
 {{- end }}
 {{- end }}
 
-{{/* Image reference for one component: pass (dict "root" $ "component" "mcp"). */}}
 {{- define "code-ingest.image" -}}
 {{- $image := index .root.Values.images .component }}
 {{- $tag := required (printf "images.%s.tag is required (sha-<short>@sha256:<digest> from CI)" .component) $image.tag }}
@@ -53,42 +55,47 @@ app.kubernetes.io/component: {{ .component }}
 {{- define "code-ingest.commonEnv" -}}
 - name: QDRANT_URL
   value: {{ .Values.qdrant.url | quote }}
-{{- if .Values.qdrant.apiKeySecret.name }}
-- name: QDRANT_API_KEY
-  valueFrom:
-    secretKeyRef:
-      name: {{ .Values.qdrant.apiKeySecret.name }}
-      key: {{ .Values.qdrant.apiKeySecret.key }}
-{{- end }}
 - name: EMBEDDING_MODEL
   value: {{ .Values.embeddingModel | quote }}
 - name: LOG_LEVEL
   value: {{ .Values.logLevel | quote }}
+# Read-only root filesystem: git and Python get their writable scratch in /tmp.
+- name: HOME
+  value: /tmp
+- name: PYTHONDONTWRITEBYTECODE
+  value: "1"
 {{- end }}
 
-{{- define "code-ingest.envFrom" -}}
-{{- if .Values.envSecretName -}}
-envFrom:
-  - secretRef:
-      name: {{ .Values.envSecretName }}
+{{/*
+<VAR>_FILE env for each secretFiles entry. A secretFiles entry without a
+SecretProviderClass would point at a file that never exists: fail the render.
+*/}}
+{{- define "code-ingest.secretFileEnv" -}}
+{{- $values := index .root.Values .component }}
+{{- if and $values.secretFiles (not $values.secretProviderClass) }}
+{{- fail (printf "%s.secretFiles is set but %s.secretProviderClass is empty" .component .component) }}
+{{- end }}
+{{- range $var, $object := $values.secretFiles }}
+- name: {{ printf "%s_FILE" $var }}
+  value: {{ printf "/mnt/secrets-store/%s" $object | quote }}
 {{- end }}
 {{- end }}
 
 {{- define "code-ingest.spcVolumeMount" -}}
-{{- if .Values.secretProviderClass.name -}}
-- name: spc
-  mountPath: {{ .Values.secretProviderClass.mountPath | quote }}
+{{- if (index .root.Values .component).secretProviderClass -}}
+- name: secrets
+  mountPath: /mnt/secrets-store
   readOnly: true
 {{- end }}
 {{- end }}
 
 {{- define "code-ingest.spcVolume" -}}
-{{- if .Values.secretProviderClass.name -}}
-- name: spc
+{{- with (index .root.Values .component).secretProviderClass -}}
+- name: secrets
   csi:
     driver: secrets-store.csi.k8s.io
     readOnly: true
     volumeAttributes:
-      secretProviderClass: {{ .Values.secretProviderClass.name | quote }}
+      secretProviderClass: {{ . | quote }}
 {{- end }}
 {{- end }}

@@ -66,6 +66,7 @@ class CheckpointManager:
         }
 
         try:
+            self.checkpoint_file.parent.mkdir(parents=True, exist_ok=True)
             with open(self.checkpoint_file, 'w') as f:
                 json.dump(checkpoint_data, f, indent=2)
 

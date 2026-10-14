@@ -1,11 +1,13 @@
 # Defaults for the code-ingest chart. Environment overrides live in app-deploy
-# (envs/ss-ai-513051133833/ai/code-ingest/values.yaml).
+# (envs/ss-ai-513051133833/ai/code-ingest/values.yaml). values.schema.json
+# rejects unknown keys.
 
 nameOverride: ""
 fullnameOverride: ""
 
-# Both images are built by .github/workflows/images.yml. `tag` accepts the
-# digest-pinned form CI reports: `sha-<short>@sha256:<digest>`.
+# Both images are built by .github/workflows/images.yml. `tag` must be the
+# digest-pinned form CI reports, `sha-<short>@sha256:<digest>`: a bare tag is
+# rejected by the schema so what runs is always the exact bytes CI built.
 images:
   pullPolicy: IfNotPresent
   mcp:
@@ -15,43 +17,49 @@ images:
     repository: code-ingest/ingest
     tag: ""
 
+# One ServiceAccount per component (<fullname>-mcp, <fullname>-ingest), so each
+# can get its own Pod Identity role and only the secrets it needs.
 serviceAccount:
   create: true
-  # Defaults to the release fullname. Pod Identity associations bind to this name.
-  name: ""
   annotations: {}
-  automountServiceAccountToken: false
 
-# Shared runtime configuration for both workloads.
 qdrant:
   url: http://qdrant:6333
-  # Optional API key Secret (Qdrant Cloud). Leave name empty for an in-cluster Qdrant.
-  apiKeySecret:
-    name: ""
-    key: QDRANT_API_KEY
 
 # Must be identical for ingest and MCP: query vectors have to come from the
 # same model that produced the stored vectors.
 embeddingModel: Qwen/Qwen3-Embedding-8B
 logLevel: INFO
 
-# Secret consumed via envFrom by both workloads. Must provide DEEPINFRA_API_KEY;
-# the ingest job also needs GITHUB_TOKEN (read access to every configured repo).
-envSecretName: ""
+# Both images run as an arbitrary non-root UID on a read-only root filesystem;
+# everything they write goes to the emptyDir/PVC mounts the templates add.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  fsGroup: 65532
+  seccompProfile:
+    type: RuntimeDefault
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  capabilities:
+    drop: [ALL]
 
-# Secrets Store CSI: the driver only materialises synced Secrets while a pod
-# mounts the volume, so both workloads mount it when a name is set.
-secretProviderClass:
-  name: ""
-  mountPath: /mnt/secrets-store
-
-podSecurityContext: {}
-securityContext: {}
+# Credentials are delivered as files from a Secrets Store CSI SecretProviderClass
+# mounted at /mnt/secrets-store, never as Kubernetes Secrets. `secretFiles` maps
+# an env var to an object alias in that mount; the chart sets <VAR>_FILE and the
+# entrypoint exports <VAR> from the file (docker/load-secret-files.sh).
+# Supported variables: mcp → DEEPINFRA_API_KEY, QDRANT_API_KEY;
+# ingest → DEEPINFRA_API_KEY, GITHUB_TOKEN, QDRANT_API_KEY.
 
 mcp:
   enabled: true
   replicaCount: 1
   port: 8001
+  secretProviderClass: ""
+  secretFiles: {}
   service:
     type: ClusterIP
     port: 8001
@@ -99,6 +107,8 @@ ingest:
   priority: low
   batchSize: 15
   embeddingTimeout: 120
+  secretProviderClass: ""
+  secretFiles: {}
   resources:
     requests:
       cpu: 500m
@@ -106,6 +116,9 @@ ingest:
     limits:
       memory: 4Gi
   # Persistent clone cache so scheduled runs `git pull` instead of re-cloning.
+  # It also holds the discovery/relationship overlays under
+  # /app/repos/.code-ingest-state, so derived dependencies carry over to the
+  # next run. Disabled → an emptyDir that lives for one run.
   reposCache:
     enabled: true
     existingClaim: ""

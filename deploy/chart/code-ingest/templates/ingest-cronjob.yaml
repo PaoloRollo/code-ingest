@@ -1,5 +1,6 @@
 {{- if .Values.ingest.enabled }}
-{{- $selector := dict "root" . "component" "ingest" }}
+{{- $component := dict "root" . "component" "ingest" }}
+{{- $state := "/app/repos/.code-ingest-state" }}
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -23,20 +24,20 @@ spec:
       template:
         metadata:
           labels:
-            {{- include "code-ingest.selectorLabels" $selector | nindent 12 }}
+            {{- include "code-ingest.selectorLabels" $component | nindent 12 }}
           {{- with .Values.ingest.podAnnotations }}
           annotations:
             {{- toYaml . | nindent 12 }}
           {{- end }}
         spec:
           restartPolicy: Never
-          serviceAccountName: {{ include "code-ingest.serviceAccountName" . }}
-          automountServiceAccountToken: {{ .Values.serviceAccount.automountServiceAccountToken }}
+          serviceAccountName: {{ include "code-ingest.serviceAccountName" $component }}
+          automountServiceAccountToken: false
           securityContext:
             {{- toYaml .Values.podSecurityContext | nindent 12 }}
           containers:
             - name: ingest
-              image: {{ include "code-ingest.image" $selector | quote }}
+              image: {{ include "code-ingest.image" $component | quote }}
               imagePullPolicy: {{ .Values.images.pullPolicy }}
               securityContext:
                 {{- toYaml .Values.securityContext | nindent 16 }}
@@ -48,29 +49,47 @@ spec:
                   value: {{ .Values.ingest.batchSize | quote }}
                 - name: EMBEDDING_TIMEOUT
                   value: {{ .Values.ingest.embeddingTimeout | quote }}
+                # Discovery/relationship overlays live next to the clones
+                # instead of in the read-only image config dir: relationships
+                # derived at the end of one run feed the next run's load.
+                - name: REPOSITORIES_DISCOVERED_CONFIG
+                  value: {{ printf "%s/repositories-discovered.yaml" $state | quote }}
+                - name: REPOSITORIES_RELATIONSHIPS_CONFIG
+                  value: {{ printf "%s/repositories-relationships.yaml" $state | quote }}
+                # Per run, deliberately not persisted: every run is a full
+                # re-ingestion and Jobs don't retry, so a checkpoint left by a
+                # failed run would only make the next one skip changed files.
+                - name: CHECKPOINT_FILE
+                  value: /tmp/ingestion_checkpoint.json
+                {{- include "code-ingest.secretFileEnv" $component | nindent 16 }}
                 {{- with .Values.ingest.extraEnv }}
                 {{- toYaml . | nindent 16 }}
                 {{- end }}
-              {{- include "code-ingest.envFrom" . | nindent 14 }}
               resources:
                 {{- toYaml .Values.ingest.resources | nindent 16 }}
-              {{- if or .Values.ingest.reposCache.enabled .Values.secretProviderClass.name }}
               volumeMounts:
-                {{- if .Values.ingest.reposCache.enabled }}
                 - name: repos
                   mountPath: /app/repos
-                {{- end }}
-                {{- include "code-ingest.spcVolumeMount" . | nindent 16 }}
-              {{- end }}
-          {{- if or .Values.ingest.reposCache.enabled .Values.secretProviderClass.name }}
+                - name: status
+                  mountPath: /app/status
+                - name: tmp
+                  mountPath: /tmp
+                {{- include "code-ingest.spcVolumeMount" $component | nindent 16 }}
           volumes:
-            {{- if .Values.ingest.reposCache.enabled }}
             - name: repos
+              {{- if .Values.ingest.reposCache.enabled }}
               persistentVolumeClaim:
                 claimName: {{ include "code-ingest.reposCacheClaim" . }}
-            {{- end }}
-            {{- include "code-ingest.spcVolume" . | nindent 12 }}
-          {{- end }}
+              {{- else }}
+              emptyDir: {}
+              {{- end }}
+            - name: status
+              emptyDir:
+                sizeLimit: 1Mi
+            - name: tmp
+              emptyDir:
+                sizeLimit: 1Gi
+            {{- include "code-ingest.spcVolume" $component | nindent 12 }}
           {{- with .Values.ingest.nodeSelector }}
           nodeSelector:
             {{- toYaml . | nindent 12 }}

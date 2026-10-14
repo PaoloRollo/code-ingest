@@ -216,7 +216,10 @@ class IngestionConfig:
     )
 
     # Checkpoint configuration
-    checkpoint_file: Path = field(default_factory=lambda: Path("./ingestion_checkpoint.json"))
+    # Override via CHECKPOINT_FILE (e.g. a writable volume under a read-only root filesystem)
+    checkpoint_file: Path = field(
+        default_factory=lambda: Path(os.getenv("CHECKPOINT_FILE", "./ingestion_checkpoint.json"))
+    )
 
     # Batch processing configuration
     # Default 15 for standard Qwen/Qwen3-Embedding-8B; use 25–100 with -batch model

@@ -40,6 +40,11 @@ This directory contains Docker Compose configuration for running the code ingest
    # - QDRANT_API_KEY
    ```
 
+   Both entrypoints also accept `<VAR>_FILE` instead of `<VAR>` for
+   `DEEPINFRA_API_KEY`, `GITHUB_TOKEN` (ingest only) and `QDRANT_API_KEY`: the
+   value is read from that file (`docker/load-secret-files.sh`). This is how
+   the ss-ai chart delivers credentials; setting both forms is an error.
+
 2. **Start services**:
    ```bash
    docker compose up

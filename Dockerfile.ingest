@@ -24,7 +24,8 @@ COPY .env.example .env
 # Create directories
 RUN mkdir -p /app/repos /app/status
 
-# Entrypoint script
+# Entrypoint script (+ the *_FILE secret loader it sources)
+COPY docker/load-secret-files.sh /usr/local/lib/code-ingest/load-secret-files.sh
 COPY docker/entrypoint-ingest.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 

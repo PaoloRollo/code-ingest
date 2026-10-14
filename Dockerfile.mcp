@@ -27,7 +27,8 @@ RUN mkdir -p /app/status
 # Expose MCP server port
 EXPOSE 8001
 
-# Entrypoint script
+# Entrypoint script (+ the *_FILE secret loader it sources)
+COPY docker/load-secret-files.sh /usr/local/lib/code-ingest/load-secret-files.sh
 COPY docker/entrypoint-mcp.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 

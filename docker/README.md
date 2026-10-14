@@ -103,7 +103,7 @@ Do not start the `ingest` service. MCP will serve queries against the existing v
 
 ### Ingestion
 - **Type**: One-shot (restarts: "no")
-- When the ingest service runs it: (1) clones repos from `config/repositories.yaml` if `/app/repos` is empty, otherwise refreshes them with `git pull`; (2) runs repository discovery (Helm, languages, repo type); (3) runs the full ingestion pipeline; (4) runs derive_dependencies. Each run is a full re-ingestion with up-to-date repo content.
+- When the ingest service runs it: (1) refreshes repos already in `/app/repos` with `git pull`, then clones any repo from `config/repositories.yaml` not yet on disk (a failed clone is logged and skipped); (2) runs repository discovery (Helm, languages, repo type); (3) runs the full ingestion pipeline; (4) runs derive_dependencies. Each run is a full re-ingestion with up-to-date repo content.
 - **Priority filter**: Set `PRIORITY=high|medium|low|ALL` in `.env` (default: low)
 - **Status file**: Writes `/app/status/ingestion_complete` when done
 - **Logs**: `docker compose logs ingest`

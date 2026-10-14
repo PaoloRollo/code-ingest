@@ -102,6 +102,14 @@ For the Eco team, the stack can be deployed to Railway as three services
 Railway's private network. See [docs/deployment/RAILWAY.md](./docs/deployment/RAILWAY.md)
 for the step-by-step setup guide and required env vars.
 
+### Alternative: ss-ai EKS cluster (internal team deploy)
+
+`.github/workflows/images.yml` builds the ingest and MCP images and pushes them
+to the ss-ai ECR on merge to `main`; `deploy/chart/code-ingest/` runs them as a
+CronJob plus an internal MCP Deployment, wired through `eco/app-deploy`. See
+[docs/deployment/SS_AI.md](./docs/deployment/SS_AI.md) for promotion and the
+first-time bootstrap.
+
 ## 🗄️ Vector Backend Configuration
 
 The system supports two vector database backends:

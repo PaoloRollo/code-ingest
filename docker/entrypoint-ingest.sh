@@ -52,20 +52,17 @@ if [ $attempt -eq $max_attempts ]; then
     exit 1
 fi
 
-# Clone or refresh repositories.
-# Detect cloned repos by the presence of */.git rather than `ls -A`, because
-# Railway volumes (ext4) contain a lost+found directory that would otherwise
-# make the mount look non-empty and skip the initial clone.
+# Refresh existing clones, then clone whatever the config lists that is not on
+# disk yet. The cloner skips repos that already exist, so running it every time
+# is what picks up repos added to config/repositories.yaml on a persistent
+# volume (Railway, the ss-ai PVC). Detect clones by */.git rather than `ls -A`:
+# ext4 volumes contain lost+found.
 shopt -s nullglob
 existing_git_dirs=(/app/repos/*/.git)
 shopt -u nullglob
 
-if [ ${#existing_git_dirs[@]} -eq 0 ]; then
-    echo "📥 Cloning repositories..."
-    python -m modules.ingest.scripts.repo_cloner --min-priority "${PRIORITY:-high}"
-    echo "✅ Repositories cloned"
-else
-    echo "🔄 Refreshing existing repositories (git pull)..."
+if [ ${#existing_git_dirs[@]} -gt 0 ]; then
+    echo "🔄 Refreshing ${#existing_git_dirs[@]} existing repositories (git pull)..."
     for git_dir in "${existing_git_dirs[@]}"; do
         repo_dir="${git_dir%/.git}"
         name=$(basename "$repo_dir")
@@ -73,6 +70,15 @@ else
         (cd "$repo_dir" && git pull --ff-only) || true
     done
     echo "✅ Repositories refreshed"
+fi
+
+echo "📥 Cloning missing repositories..."
+# A single failed clone (revoked access, timeout) must not block ingestion of
+# everything else; the cloner already logs each failure.
+if python -m modules.ingest.scripts.repo_cloner --min-priority "${PRIORITY:-high}"; then
+    echo "✅ Repositories cloned"
+else
+    echo "⚠️  Some repositories failed to clone; continuing with what is on disk"
 fi
 
 # Update discovered config (Helm, languages, repo type)

@@ -1,0 +1,162 @@
+name: images
+
+# Builds the ingest and MCP images on every PR (gate only) and publishes them
+# to the ss-ai in-account ECR on merge to main. app-deploy pins the digest this
+# workflow reports (envs/ss-ai-513051133833/ai/code-ingest/values.yaml); it is
+# NOT bumped automatically.
+#
+# config/** is a trigger on purpose: config/repositories.yaml and
+# config/collections.yaml are baked into both images, so a repo-list change
+# only reaches the cluster through a new image.
+
+on:
+  pull_request:
+    paths: &paths
+      - Dockerfile.ingest
+      - Dockerfile.mcp
+      - .dockerignore
+      - requirements.txt
+      - docker/**
+      - modules/**
+      - mcp/**
+      - config/**
+      - scripts/**
+      - tests/**
+      - deploy/chart/**
+      - .github/workflows/images.yml
+  push:
+    branches: [main]
+    paths: *paths
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: images-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  AWS_REGION: us-east-2
+  ECR: 513051133833.dkr.ecr.us-east-2.amazonaws.com
+  # Created by app-deploy envs/ss-ai-513051133833/ai/code-ingest/extras/ci-iam.yaml;
+  # trust is pinned to this repo's immutable OIDC subject.
+  ECR_ROLE: arn:aws:iam::513051133833:role/github-actions-code-ingest-image-publisher
+
+jobs:
+  chart:
+    name: helm lint + render
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: "v3.16.3"
+
+      - name: helm lint
+        run: |
+          helm lint deploy/chart/code-ingest \
+            --set images.mcp.tag=sha-0000000 --set images.ingest.tag=sha-0000000
+
+      # A missing image tag must fail the render, not ship a pod that pulls
+      # `repo:` and sits in InvalidImageName.
+      - name: missing image tag fails to render
+        run: |
+          if helm template t deploy/chart/code-ingest >/dev/null 2>&1; then
+            echo "::error::expected render to FAIL without image tags"; exit 1
+          fi
+
+      # The CSI driver only syncs Secrets while a pod mounts the volume. Both
+      # workloads must mount it, or the CronJob starts with no credentials
+      # whenever the MCP pod is down.
+      - name: both workloads mount the secret provider class
+        run: |
+          helm template t deploy/chart/code-ingest \
+            --set images.mcp.tag=sha-0000000 --set images.ingest.tag=sha-0000000 \
+            --set secretProviderClass.name=spc > /tmp/csi.yaml
+          test "$(grep -c 'secretProviderClass: "spc"' /tmp/csi.yaml)" = 2
+
+  image:
+    name: ${{ matrix.component }} image
+    needs: chart
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # OIDC federation into the ss-ai account
+    strategy:
+      fail-fast: false
+      matrix:
+        component: [ingest, mcp]
+    env:
+      REPOSITORY: code-ingest/${{ matrix.component }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Compute short-SHA tag
+        run: echo "TAG=sha-${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+
+      # Loaded locally first so the tests run against the exact image that
+      # gets pushed. ss-ai nodes are x86_64 (m5/m6i/m6a), hence amd64 only.
+      - name: Build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.${{ matrix.component }}
+          platforms: linux/amd64
+          load: true
+          tags: ${{ env.ECR }}/${{ env.REPOSITORY }}:${{ env.TAG }}
+          cache-from: type=gha,scope=${{ matrix.component }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.component }}
+
+      - name: Unit tests in the image
+        run: |
+          case "${{ matrix.component }}" in
+            ingest) suites=(tests.unit.test_batch_processor tests.unit.test_surrealdb_get_collections) ;;
+            mcp)    suites=(tests.unit.test_health_server) ;;
+          esac
+          docker run --rm -v "$PWD/tests:/app/tests:ro" --entrypoint python \
+            "$ECR/$REPOSITORY:$TAG" -m unittest "${suites[@]}" -v
+
+      - name: Configure AWS credentials
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.ECR_ROLE }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to ECR
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # Tags are IMMUTABLE: re-running on the same commit must skip, not fail
+      # on a push that would repoint a tag something already pinned.
+      - name: Push
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        run: |
+          if aws ecr describe-images --region "$AWS_REGION" \
+               --repository-name "$REPOSITORY" \
+               --image-ids imageTag="$TAG" >/dev/null 2>&1; then
+            echo "::notice title=Already published::$ECR/$REPOSITORY:$TAG"
+          else
+            docker push "$ECR/$REPOSITORY:$TAG"
+          fi
+
+      - name: Report the pinned reference
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        run: |
+          DIGEST=$(aws ecr describe-images --region "$AWS_REGION" \
+            --repository-name "$REPOSITORY" \
+            --image-ids imageTag="$TAG" \
+            --query 'imageDetails[0].imageDigest' --output text)
+          {
+            echo "### $REPOSITORY"
+            echo ""
+            echo "Pin in app-deploy \`envs/ss-ai-513051133833/ai/code-ingest/values.yaml\` → \`images.${{ matrix.component }}.tag\`:"
+            echo ""
+            echo '```'
+            echo "$TAG@$DIGEST"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,77 @@
+{{- if .Values.mcp.enabled }}
+{{- $selector := dict "root" . "component" "mcp" }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "code-ingest.fullname" . }}-mcp
+  labels:
+    {{- include "code-ingest.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mcp
+spec:
+  replicas: {{ .Values.mcp.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "code-ingest.selectorLabels" $selector | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "code-ingest.selectorLabels" $selector | nindent 8 }}
+      {{- with .Values.mcp.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ include "code-ingest.serviceAccountName" . }}
+      automountServiceAccountToken: {{ .Values.serviceAccount.automountServiceAccountToken }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: mcp
+          image: {{ include "code-ingest.image" $selector | quote }}
+          imagePullPolicy: {{ .Values.images.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.mcp.port }}
+              protocol: TCP
+          env:
+            {{- include "code-ingest.commonEnv" . | nindent 12 }}
+            # Streamable HTTP MCP at /mcp plus /health on the same port.
+            - name: MCP_HTTP_TRANSPORT
+              value: "true"
+            - name: HEALTH_PORT
+              value: {{ .Values.mcp.port | quote }}
+            {{- with .Values.mcp.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- include "code-ingest.envFrom" . | nindent 10 }}
+          startupProbe:
+            {{- toYaml .Values.mcp.probes.startup | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.mcp.probes.readiness | nindent 12 }}
+          livenessProbe:
+            {{- toYaml .Values.mcp.probes.liveness | nindent 12 }}
+          resources:
+            {{- toYaml .Values.mcp.resources | nindent 12 }}
+          {{- if .Values.secretProviderClass.name }}
+          volumeMounts:
+            {{- include "code-ingest.spcVolumeMount" . | nindent 12 }}
+          {{- end }}
+      {{- if .Values.secretProviderClass.name }}
+      volumes:
+        {{- include "code-ingest.spcVolume" . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.mcp.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.mcp.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.mcp.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

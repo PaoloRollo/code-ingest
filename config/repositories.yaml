@@ -1,111 +1,157 @@
 # Repository Configuration for Code Ingestion System
 #
-# REPLACE WITH YOUR OWN REPOSITORIES
-#
 # This file defines all repositories to be ingested into the vector database.
-# The entries below are examples showing the schema - replace them with your
-# organization's repositories.
 #
 # Configuration path can be overridden via REPOSITORIES_CONFIG environment variable.
 # Default location: config/repositories.yaml
 #
-# --- Minimal example (only github_url required) ---
-# For learning about a new repo, you can list just the GitHub URL. Other fields
-# are defaulted: id = repo name from URL, repo_type = backend, languages = [rust, yaml],
-# components = [.], priority = medium. Optional discovery can fill in Helm, languages,
-# and repo type after cloning (see docs).
-#
-# repos_base_dir: ./repos
-# repositories:
-#   - github_url: https://github.com/org/some-new-repo
+# --- Minimal entry (only github_url required) ---
+# Other fields are defaulted: id = repo name from URL, repo_type = backend,
+# languages = [rust, yaml], components = [.], priority = medium. Discovery
+# (modules/ingest/scripts/repo_discovery.py) fills in Helm, languages and repo
+# type after cloning.
 #
 # --- Full schema (optional fields for better context) ---
 # id, repo_type, languages, components, priority, has_helm, helm_path,
 # service_dependencies, exposes_apis, api_base_path
+#
+# --- Inclusion rule (last synced 2026-10-14 from `gh repo list eco|eco-incorp`) ---
+# Every non-archived, non-empty repo in the eco and eco-incorp orgs whose default
+# branch received a commit in the last 12 months, except:
+#   - GitHub security-advisory forks (eco-routes-ghsa-*, eco-routes-svm-ghsa-*)
+#   - eco-incorp/sauce-old (superseded by eco-incorp/sauce)
+#   - eco-incorp/workflows: clone directories are keyed by repo name, so it
+#     would collide with eco/workflows
+# Repo names must be unique across both orgs for the same reason.
 
 # Base directory for cloning repositories (default: ./repos)
 repos_base_dir: ./repos
 
-# Repository definitions
 repositories:
+  # === ECO ORG ===
+  - github_url: https://github.com/eco/agent-broker
+  - github_url: https://github.com/eco/ai-ft-pipelines
+  - github_url: https://github.com/eco/ai-session-observability
+  - github_url: https://github.com/eco/api-key-service
+  - github_url: https://github.com/eco/app-deploy
+  - github_url: https://github.com/eco/attribution_model
+  - github_url: https://github.com/eco/balances-dashboard
+  - github_url: https://github.com/eco/balances-service
+  - github_url: https://github.com/eco/circuit-breaker
+  - github_url: https://github.com/eco/deposit-address-app
+  - github_url: https://github.com/eco/deposit-addresses
+  - github_url: https://github.com/eco/ecdsa-executor
+  - github_url: https://github.com/eco/eco-chains
+  - github_url: https://github.com/eco/eco-delivery
+  - github_url: https://github.com/eco/eco-general-scripts
+  - github_url: https://github.com/eco/eco-indexer
+  - github_url: https://github.com/eco/eco-messaging
+  - github_url: https://github.com/eco/eco-org
+  - github_url: https://github.com/eco/eco-prover
+  - github_url: https://github.com/eco/eco-quotes
+  - github_url: https://github.com/eco/eco-refunds
   - github_url: https://github.com/eco/eco-routes
   - github_url: https://github.com/eco/eco-routes-svm
-  - github_url: https://github.com/eco/eco-chains
-  - github_url: https://github.com/eco/permit3
-
-  # === ECO ORG — NEW SERVICES ===
-  - github_url: https://github.com/eco/balances-service
-  - github_url: https://github.com/eco/deposit-addresses
-  - github_url: https://github.com/eco/routes-deployer-cli
-  - github_url: https://github.com/eco/solver-guardian
   - github_url: https://github.com/eco/eco-solver
-  - github_url: https://github.com/eco/eco-refunds
-  - github_url: https://github.com/eco/eco-quotes
+  - github_url: https://github.com/eco/eco-swap-gateway
+  - github_url: https://github.com/eco/eco-test-infra
+  - github_url: https://github.com/eco/eco-x402
+  - github_url: https://github.com/eco/ephemeral-deploy
+  - github_url: https://github.com/eco/kernel-auditor
   - github_url: https://github.com/eco/liquidity-manager
-  - github_url: https://github.com/eco/netting-prover
-  - github_url: https://github.com/eco/routes-cli
-  - github_url: https://github.com/eco/toolkit
-  - github_url: https://github.com/eco/routes
+  - github_url: https://github.com/eco/native-price-feed
+  - github_url: https://github.com/eco/natural-rebalancing
+  - github_url: https://github.com/eco/nephos
+  - github_url: https://github.com/eco/permit3
+  - github_url: https://github.com/eco/quotes-service-routes-registration-and-check
+  - github_url: https://github.com/eco/refunds-tracker
+  - github_url: https://github.com/eco/research
   - github_url: https://github.com/eco/root-app
-  - github_url: https://github.com/eco/eco-general-scripts
-  - github_url: https://github.com/eco/veda
-  - github_url: https://github.com/eco/erpc
+  - github_url: https://github.com/eco/routes
+  - github_url: https://github.com/eco/routes-cli
+  - github_url: https://github.com/eco/routes-deployer-cli
+  - github_url: https://github.com/eco/skill-factory
+  - github_url: https://github.com/eco/skills
+  - github_url: https://github.com/eco/solver-guardian
   - github_url: https://github.com/eco/substreams-sink-mongodb
-  - github_url: https://github.com/eco/routes-rindexer
-  - github_url: https://github.com/eco/eco_governance
-  - github_url: https://github.com/eco/rhine_constants
+  - github_url: https://github.com/eco/temp-deposit-address-indexer
+  - github_url: https://github.com/eco/themis
+  - github_url: https://github.com/eco/toolkit
+  - github_url: https://github.com/eco/tron-energy-rental
+  - github_url: https://github.com/eco/veda
+  - github_url: https://github.com/eco/wallet-registry
+  - github_url: https://github.com/eco/wallet-screening
+  - github_url: https://github.com/eco/workflows
+  - github_url: https://github.com/eco/xray
 
   # === ECO-INCORP ORG ===
-  - github_url: https://github.com/eco-incorp/qa-command-center
+  - github_url: https://github.com/eco-incorp/admin-dashboard
+  - github_url: https://github.com/eco-incorp/ai-router
+  - github_url: https://github.com/eco-incorp/api-key-dashboard
+  - github_url: https://github.com/eco-incorp/automated-gas-refill-bot
+  - github_url: https://github.com/eco-incorp/b2c2-price-service
+  - github_url: https://github.com/eco-incorp/bastion
+  - github_url: https://github.com/eco-incorp/cash-balance-monitor
+  - github_url: https://github.com/eco-incorp/cex-ingestion
   - github_url: https://github.com/eco-incorp/chain-test
+  - github_url: https://github.com/eco-incorp/code-ingest
+  - github_url: https://github.com/eco-incorp/controller
+  - github_url: https://github.com/eco-incorp/crowd-liquidity
+  - github_url: https://github.com/eco-incorp/crowd-liquidity-pool
+  - github_url: https://github.com/eco-incorp/daily-balance-tracker
+  - github_url: https://github.com/eco-incorp/dex-price-feed
+  - github_url: https://github.com/eco-incorp/doa-tap-page
+  - github_url: https://github.com/eco-incorp/Eco-refund
+  - github_url: https://github.com/eco-incorp/eco-ai-configs
+  - github_url: https://github.com/eco-incorp/eco-ai-demos
+  - github_url: https://github.com/eco-incorp/eco-api-schemas
+  - github_url: https://github.com/eco-incorp/eco-chain-plugin
+  - github_url: https://github.com/eco-incorp/eco-console
+  - github_url: https://github.com/eco-incorp/eco-event-dashboard
+  - github_url: https://github.com/eco-incorp/eco-event-listener
+  - github_url: https://github.com/eco-incorp/eco-event-query-node
+  - github_url: https://github.com/eco-incorp/eco-loadtest-toolkit
+  - github_url: https://github.com/eco-incorp/eco-mppx
+  - github_url: https://github.com/eco-incorp/eco-prds
+  - github_url: https://github.com/eco-incorp/eco-product
+  - github_url: https://github.com/eco-incorp/eco-quotes-monitoring
+  - github_url: https://github.com/eco-incorp/eco-refunds-alert
+  - github_url: https://github.com/eco-incorp/eco-solver-deploy
+  - github_url: https://github.com/eco-incorp/eco-substreams
+  - github_url: https://github.com/eco-incorp/eco-templates
+  - github_url: https://github.com/eco-incorp/eco_tron_kernel
+  - github_url: https://github.com/eco-incorp/ecoswap-bench
+  - github_url: https://github.com/eco-incorp/fees-checker
+  - github_url: https://github.com/eco-incorp/finance-stack
+  - github_url: https://github.com/eco-incorp/gas-consumption-tracker
+  - github_url: https://github.com/eco-incorp/gas-ops
+  - github_url: https://github.com/eco-incorp/gas-refill-service
+  - github_url: https://github.com/eco-incorp/hats-dashboard
   - github_url: https://github.com/eco-incorp/ingestion-data-layer
+  - github_url: https://github.com/eco-incorp/manual-rebalancing-bot
+  - github_url: https://github.com/eco-incorp/mintlify-docs
+  - github_url: https://github.com/eco-incorp/month-end-balances
+  - github_url: https://github.com/eco-incorp/nettingproverservice
+  - github_url: https://github.com/eco-incorp/otc-recon
+  - github_url: https://github.com/eco-incorp/paxos-test-loop
+  - github_url: https://github.com/eco-incorp/porto-relay
+  - github_url: https://github.com/eco-incorp/portal
+  - github_url: https://github.com/eco-incorp/pr-stats
+  - github_url: https://github.com/eco-incorp/pricing-engine
+  - github_url: https://github.com/eco-incorp/product
   - github_url: https://github.com/eco-incorp/protocol-balance-monitor
   - github_url: https://github.com/eco-incorp/protocol-indexer
-  - github_url: https://github.com/eco-incorp/portal
-  - github_url: https://github.com/eco-incorp/mvp_pricing_engine
-  - github_url: https://github.com/eco-incorp/smart-sauce-api
-  - github_url: https://github.com/eco-incorp/sauce-compiler-api
-  - github_url: https://github.com/eco-incorp/eco-solver-deploy
-  - github_url: https://github.com/eco-incorp/solver-admin-dashboard
-  - github_url: https://github.com/eco-incorp/cash-balance-monitor
-  - github_url: https://github.com/eco-incorp/finance-dashboard
-  - github_url: https://github.com/eco-incorp/manual-rebalancing-bot
-  - github_url: https://github.com/eco-incorp/gas-refill-service
-  - github_url: https://github.com/eco-incorp/solver-historical-balances
-  - github_url: https://github.com/eco-incorp/nettingproverservice
-  - github_url: https://github.com/eco-incorp/eco-refunds-alert
-  - github_url: https://github.com/eco-incorp/Eco-refund
-  - github_url: https://github.com/eco-incorp/eco-event-listener
-  - github_url: https://github.com/eco-incorp/eco-substreams
-  - github_url: https://github.com/eco-incorp/porto-relay
-  - github_url: https://github.com/eco-incorp/crowd-liquidity-pool
-  - github_url: https://github.com/eco-incorp/relayoor
-  - github_url: https://github.com/eco-incorp/crowd-liquidity
+  - github_url: https://github.com/eco-incorp/qa-command-center
+  - github_url: https://github.com/eco-incorp/quote-service-monitoring
   - github_url: https://github.com/eco-incorp/rebalance-me
-  - github_url: https://github.com/eco-incorp/eco-event-query-node
-  - github_url: https://github.com/eco-incorp/eco-event-dashboard
-  - github_url: https://github.com/eco-incorp/hats-dashboard
-  - github_url: https://github.com/eco-incorp/rebalance-modeler
-  - github_url: https://github.com/eco-incorp/linkedup-app
-  - github_url: https://github.com/eco-incorp/linkedup
-  - github_url: https://github.com/eco-incorp/doa-tap-page
+  - github_url: https://github.com/eco-incorp/router
   - github_url: https://github.com/eco-incorp/sauce
-  # === FRONTEND ===
-  # - id: arda-platform
-  #   github_url: https://github.com/ardaglobal/arda-platform
-  #   repo_type: frontend
-  #   languages:
-  #     - typescript
-  #     - yaml
-  #   components:
-  #     - pages
-  #     - components
-  #     - api
-  #     - config
-  #   has_helm: true
-  #   helm_path: helm/
-  #   service_dependencies:
-  #     - arda-credit
-  #     - arda-chat-agent
-  #     - fastmcp-proxy
-  #   priority: high
+  - github_url: https://github.com/eco-incorp/sauce-playground
+  # ~900 MB clone; first run is the slow one, later runs `git pull` on the cache.
+  - github_url: https://github.com/eco-incorp/sauce-recipes
+  - github_url: https://github.com/eco-incorp/settlement-contracts
+  - github_url: https://github.com/eco-incorp/slack-gas-requests
+  - github_url: https://github.com/eco-incorp/solver-historical-balances
+  - github_url: https://github.com/eco-incorp/solver-onchain-balances
+  - github_url: https://github.com/eco-incorp/terraform-eco-infrastructure
+  - github_url: https://github.com/eco-incorp/v12

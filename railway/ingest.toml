@@ -1,0 +1,24 @@
+# Railway service: code-ingest-ingest
+# Built from Dockerfile.ingest (existing in repo root).
+# Volume: 20 GB attached at /app/repos so cron runs git pull instead of re-cloning.
+# Network: no exposed port (private internal egress only to qdrant-code-ingest).
+#
+# Required service env vars (set in Railway dashboard or via project shared variables):
+#   DEEPINFRA_API_KEY
+#   GITHUB_TOKEN
+#   QDRANT_URL=http://qdrant-code-ingest.railway.internal:6333
+#
+# Optional env vars (with defaults documented in docs/deployment/RAILWAY.md):
+#   PRIORITY=low
+#   EMBEDDING_MODEL=Qwen/Qwen3-Embedding-8B
+#   BATCH_SIZE=15
+#   EMBEDDING_TIMEOUT=120
+#   LOG_LEVEL=INFO
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile.ingest"
+
+[deploy]
+restartPolicyType = "NEVER"
+cronSchedule = "0 4 * * *"

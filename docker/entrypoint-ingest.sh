@@ -5,6 +5,20 @@ echo "=================================================="
 echo "Code Ingestion Service"
 echo "=================================================="
 
+# Required env vars — fail fast with a clear message.
+missing=()
+if [ -z "${DEEPINFRA_API_KEY:-}" ]; then
+    missing+=("DEEPINFRA_API_KEY")
+fi
+if [ -z "${GITHUB_TOKEN:-}" ]; then
+    missing+=("GITHUB_TOKEN")
+fi
+if [ "${#missing[@]}" -gt 0 ]; then
+    echo "❌ Missing required environment variable(s): ${missing[*]}" >&2
+    echo "   Set them in your .env file (docker compose) or in the Railway service variables, then redeploy." >&2
+    exit 1
+fi
+
 # Wait for Qdrant to be ready
 echo "⏳ Waiting for Qdrant..."
 max_attempts=30
@@ -38,19 +52,25 @@ if [ $attempt -eq $max_attempts ]; then
     exit 1
 fi
 
-# Clone or refresh repositories
-if [ ! "$(ls -A /app/repos 2>/dev/null)" ]; then
+# Clone or refresh repositories.
+# Detect cloned repos by the presence of */.git rather than `ls -A`, because
+# Railway volumes (ext4) contain a lost+found directory that would otherwise
+# make the mount look non-empty and skip the initial clone.
+shopt -s nullglob
+existing_git_dirs=(/app/repos/*/.git)
+shopt -u nullglob
+
+if [ ${#existing_git_dirs[@]} -eq 0 ]; then
     echo "📥 Cloning repositories..."
     python -m modules.ingest.scripts.repo_cloner --min-priority "${PRIORITY:-high}"
     echo "✅ Repositories cloned"
 else
     echo "🔄 Refreshing existing repositories (git pull)..."
-    for repo_dir in /app/repos/*/ ; do
-        if [ -d "${repo_dir}.git" ]; then
-            name=$(basename "$repo_dir")
-            echo "   Refreshing $name..."
-            (cd "$repo_dir" && git pull --ff-only) || true
-        fi
+    for git_dir in "${existing_git_dirs[@]}"; do
+        repo_dir="${git_dir%/.git}"
+        name=$(basename "$repo_dir")
+        echo "   Refreshing $name..."
+        (cd "$repo_dir" && git pull --ff-only) || true
     done
     echo "✅ Repositories refreshed"
 fi

@@ -95,6 +95,13 @@ make health
 
 Requires Python 3.11+ and [uv](https://github.com/astral-sh/uv) (installed automatically by `make setup`).
 
+### Alternative: Railway (internal team deploy)
+
+For the Eco team, the stack can be deployed to Railway as three services
+(Qdrant + cron-scheduled ingestion + MCP server) communicating over
+Railway's private network. See [docs/deployment/RAILWAY.md](./docs/deployment/RAILWAY.md)
+for the step-by-step setup guide and required env vars.
+
 ## 🗄️ Vector Backend Configuration
 
 The system supports two vector database backends:
